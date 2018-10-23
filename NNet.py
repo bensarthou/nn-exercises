@@ -156,8 +156,8 @@ class NNet:
                 # parameters update
                 eta = eta_0 / (1 + eta_decrease_factor * iteration_counter)
                 for layer in range(self.n_hidden_layers + 1):
-                    self.weights[layer], self.biases[layer] = self.update_weights(self.weights[layer],  self.biases[layer],
-                                                                                   grad_weights[layer], grad_biases[layer], eta)
+                    self.weights[layer], self.biases[layer] = self.update_weights(self.weights[layer], self.biases[layer],
+                                                                                  grad_weights[layer], grad_biases[layer], eta)
 
             # display info
             if verbose:
