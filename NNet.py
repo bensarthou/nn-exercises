@@ -29,9 +29,10 @@ class NNet:
         self.n_labels = n_labels
         n_in = [n_features] + [layer['n_neurons'] for layer in hidden_layers]
         n_out = [layer['n_neurons'] for layer in hidden_layers] + [n_labels]
-        self.weights = [None] * len(n_in)  # each element is a tuple (W, b)
+        self.weights = [None] * len(n_in)  # each element is W
+        self.biases  = [None] * len(n_in)  # each element is b
         for i_layer in range(self.n_hidden_layers + 1):
-            self.weights[i_layer] = self.init_weights(n_in[i_layer], n_out[i_layer])
+            self.weights[i_layer], self.biases[i_layer] = self.init_weights(n_in[i_layer], n_out[i_layer])
 
     def predict(self, X, return_output=False):
         """
@@ -44,11 +45,11 @@ class NNet:
         # pass through hidden layers
         inputs = X.T
         for h_layer in range(self.n_hidden_layers):
-            a = self.pre_activation(self.weights[h_layer][0], self.weights[h_layer][1], inputs)
+            a = self.pre_activation(self.weights[h_layer], self.biases[h_layer], inputs)
             inputs = self.activations_map[self.hidden_layers_activations[h_layer]](a)
 
         # pass through output layer
-        output = self.softmax(self.pre_activation(self.weights[-1][0], self.weights[-1][1], inputs))
+        output = self.softmax(self.pre_activation(self.weights[-1], self.biases[-1], inputs))
 
         # get best labels
         y = np.argmax(output, axis=0)
@@ -144,13 +145,13 @@ class NNet:
                     error_valid.append(self.error_rate(y_pred_valid, valid_set[1]))
 
                 # backward propagation : computation of gradient w.r.t the weights and biases
-                grad_weights = self.backward(inputs, pre_activations, outputs, y_batch)
+                grad_weights, grad_biases = self.backward(inputs, pre_activations, outputs, y_batch)
 
                 # parameters update
                 eta = eta_0 / (1 + eta_decrease_factor * iteration_counter)
                 for layer in range(self.n_hidden_layers + 1):
-                    self.weights[layer] = self.update_weights(self.weights[layer][0], self.weights[layer][1],
-                                                              grad_weights[layer][0], grad_weights[layer][1], eta)
+                    self.weights[layer], self.biases[layer] = self.update_weights(self.weights[layer],  self.biases[layer],
+                                                                                   grad_weights[layer], grad_biases[layer], eta)
 
             # display info
             if verbose:
@@ -266,13 +267,13 @@ class NNet:
         # pass through hidden layers
         inputs[0] = X.T
         for h_layer in range(self.n_hidden_layers):
-            pre_activations[h_layer] = self.pre_activation(self.weights[h_layer][0], self.weights[h_layer][1],
+            pre_activations[h_layer] = self.pre_activation(self.weights[h_layer], self.biases[h_layer],
                                                            inputs[h_layer])
             outputs[h_layer] = self.activations_map[self.hidden_layers_activations[h_layer]](pre_activations[h_layer])
             inputs[h_layer + 1] = outputs[h_layer]
 
         # pass through output layer
-        pre_activations[-1] = self.pre_activation(self.weights[-1][0], self.weights[-1][1], inputs[-1])
+        pre_activations[-1] = self.pre_activation(self.weights[-1], self.biases[-1], inputs[-1])
         outputs[-1] = self.softmax(pre_activations[-1])
 
         # get best labels
@@ -298,24 +299,25 @@ class NNet:
         :param pre_activations: pre-activations at each layer, list (n_layers) of ndarray (n_output x minibatch_size)
         :param outputs: outputs at each layer, list (n_layers) of ndarray (n_output x minibatch_size)
         :param labels: real labels, ndarray (1 x minibatch_size)
-        :return: grad_weights: gradient of the loss w.r.t W and b at each layer, list (n_layers) of tuple (ndarray (n_output x n_input), ndarray (n_output x 1))
+        :return: grad_weights: gradient of the loss w.r.t W at each layer, list (n_layers) of ndarray (n_output x n_input)
+        :return: grad_biases: gradient of the loss w.r.t b at each layer, list (n_layers) of ndarray (n_output x 1)
         """
         grad_weights = [None] * (self.n_hidden_layers + 1)
+        grad_biases  = [None] * (self.n_hidden_layers + 1)
 
         # pass through output layer
         grad_pre_activation = self.gradient_out(outputs[-1], labels)
-        grad_weights[-1] = self.gradient_weights(grad_pre_activation, inputs[-1])
+        grad_weights[-1], grad_biases[-1] = self.gradient_weights(grad_pre_activation, inputs[-1])
 
         # pass through hidden layers
         for h_layer in reversed(range(self.n_hidden_layers)):
-            grad_pre_activation = self.gradient_hidden(self.weights[h_layer + 1][0],
+            grad_pre_activation = self.gradient_hidden(self.weights[h_layer + 1],
                                                        grad_pre_activation,
                                                        pre_activations[h_layer],
-                                                       self.activations_derivatives_map[
-                                                           self.hidden_layers_activations[h_layer]])
-            grad_weights[h_layer] = self.gradient_weights(grad_pre_activation, inputs[h_layer])
+                                                       self.activations_derivatives_map[self.hidden_layers_activations[h_layer]])
+            grad_weights[h_layer], grad_biases[h_layer] = self.gradient_weights(grad_pre_activation, inputs[h_layer])
 
-        return grad_weights
+        return grad_weights, grad_biases
 
     def gradient_out(self, outputs, labels):
         """
