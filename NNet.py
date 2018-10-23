@@ -32,7 +32,12 @@ class NNet:
         self.weights = [None] * len(n_in)  # each element is W
         self.biases  = [None] * len(n_in)  # each element is b
         for i_layer in range(self.n_hidden_layers + 1):
-            self.weights[i_layer], self.biases[i_layer] = self.init_weights(n_in[i_layer], n_out[i_layer])
+            self.weights[i_layer], self.biases[i_layer] = self.init_weights(n_in[i_layer],
+                                                                            n_out[i_layer])
+
+        # Regularization
+        self.reg_lambda = 0.0
+        self.lnorm = 2
 
     def predict(self, X, return_output=False):
         """
@@ -40,7 +45,8 @@ class NNet:
         :param X: list of samples to predict, ndarray(n_samples, n_features)
         :param return_output: (optionnal) if True, return also full nnet_output
         :return: y: list of predicted labels, ndarray(n_samples,)
-        :return: (only if return_output = True) the full output of the nnet, ndarray (n_samples, n_labels)
+        :return: (only if return_output = True) the full output of the nnet,
+                    ndarray (n_samples, n_labels)
         """
         # pass through hidden layers
         inputs = X.T
@@ -203,10 +209,29 @@ class NNet:
         Compute log-loss of current batch
         :param outputs: outputs of the NNet, ndarray (n_labels x minibatch_size)
         :param labels: real labels, ndarray (1 x minibatch_size)
+        :param lmbda: float, regularization weight
+        :param order: int, order of the norm for the weight regularization
+
         :return log-loss summed over all outputs, float
         """
+
         one_hot_labels = self.one_hot_labels_representation(labels)
-        return np.sum(-np.log(outputs) * one_hot_labels) / outputs.shape[1]
+        reg_term = 0
+
+        # Regularization
+        if self.reg_lambda != 0.0:
+
+            # Computing ||Theta||
+            norm_theta = 0
+
+            for h_layer in range(self.n_hidden_layers):
+                # ||theta|| += ||W_i||^2 + ||b_i||^2
+                norm_theta += np.linalg.norm(self.weights[h_layer], self.lnorm)**2 +\
+                              np.linalg.norm(self.biases[h_layer], self.lnorm)**2
+
+            reg_term = (self.reg_lambda/2)*norm_theta
+
+        return np.sum(-np.log(outputs) * one_hot_labels) / outputs.shape[1] + reg_term
 
     def error_rate(self, predicted_labels, labels):
         """
@@ -315,7 +340,8 @@ class NNet:
                                                        grad_pre_activation,
                                                        pre_activations[h_layer],
                                                        self.activations_derivatives_map[self.hidden_layers_activations[h_layer]])
-            grad_weights[h_layer], grad_biases[h_layer] = self.gradient_weights(grad_pre_activation, inputs[h_layer])
+            grad_weights[h_layer], grad_biases[h_layer] = self.gradient_weights(grad_pre_activation,
+                                                                                inputs[h_layer])
 
         return grad_weights, grad_biases
 
@@ -357,9 +383,24 @@ class NNet:
         grad_w = np.zeros((n_output, n_input))
         grad_b = np.zeros((n_output, 1))
 
+        # Adding the gradient w.r.t for each example of the minibatch
         for i_sample in range(minibatch_size):
             grad_b += np.transpose(np.atleast_2d(grad_a[:, i_sample]))
             grad_w += np.outer(grad_a[:, i_sample], x[:, i_sample])
+
+        # Regularization
+        reg_w, reg_b = 0, 0
+        if self.reg_lambda != 0.0:
+            for h_layer in range(self.n_hidden_layers):
+                reg_w += self.weights[h_layer]
+                reg_b += self.biases[h_layer]
+
+            reg_w *= self.reg_lambda
+            reg_b *= self.reg_lambda
+
+            # grad_theta = dL/dtheta + reg_lambda*theta
+            grad_b += reg_b
+            grad_w += reg_w
 
         grad_b /= minibatch_size
         grad_w /= minibatch_size
