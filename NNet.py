@@ -89,6 +89,8 @@ class NNet:
               eta_0=1,
               eta_decrease_factor=0,
               valid_interp_iter=50,
+              reg_lambda=0.0,
+              lnorm=2,
               verbose=True):
         """
         Train the NNet with the train_set given.
@@ -103,7 +105,10 @@ class NNet:
         :param eta_0: initial value for the SGD update factor, float.
         :param eta_decrease_factor: coefficient used in the decreasing rule of eta : eta_0 / (1 + t * eta_decrease_factor), float.
         :param valid_interp_iter: number of iterations between each check on validation set if this set is given.
+        :param reg_lambda: regularization parameter, float
+        :param lnorm: order for the regularization norm, int
         :param verbose: if True, display some training data, bool.
+
         :return: logloss_train: log-loss values of the training batches at each iteration, list.
         :return: error_train: error rate values of the training batches at each iteration, list.
         :return: logloss_valid: log-loss values of the full validation set computed each valid_interp_iter and interpolated at each iteration, list.
@@ -113,6 +118,11 @@ class NNet:
         n_training = X.shape[0]
         iteration_counter = 0
         logloss_train, error_train, logloss_valid, error_valid = [], [], [], []
+
+        # Regularization
+        if reg_lambda != 0.0:
+            self.reg_lambda = reg_lambda
+            self.lnorm = lnorm
 
         # display info
         if verbose:
