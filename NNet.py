@@ -16,14 +16,14 @@ class NNet:
         """
         # init activation functions of hidden layers
         self.n_hidden_layers = len(hidden_layers)
-        self.activations_map = {'sigmoid': self.sigmoid}
-        self.activations_derivatives_map = {'sigmoid': self.deriv_sigmoid}
+        self.activations_map = {'sigmoid': self.sigmoid, 'relu':self.relu}
+        self.activations_derivatives_map = {'sigmoid': self.deriv_sigmoid, 'relu':self.deriv_relu}
         self.hidden_layers_activations = []
         for layer in hidden_layers:
-            if layer['activation'] == 'sigmoid':
+            if layer['activation'] in {'sigmoid', 'relu'}:
                 self.hidden_layers_activations.append(layer['activation'])
             else:
-                raise ValueError('Activation functions other than sigmoid have not been implemented yet.')
+                raise ValueError('Activation functions other than sigmoid or relu have not been implemented yet.')
 
         # init weights and biases of each layer
         self.n_labels = n_labels
@@ -272,6 +272,22 @@ class NNet:
         :return: the gradient w.r.t. to the non linear activation function of the hidden layer, ndarray (n_hidden x minibatch_size)
         """
         return self.sigmoid(a) * (1 - self.sigmoid(a))
+
+    def relu(self, x):
+        """
+        Perform the rectified linear transformation of the pre-activation values
+        :param a: the pre-activation values, ndarray (n_output x minibatch_size)
+        :return: the activation values, ndarray (n_output x minibatch_size)
+        """
+        return x * (x > 0)
+
+    def deriv_relu(self, x):
+        """
+        Compute the derivative of the rectified linear function.
+        :param a: the pre-activation values, ndarray (n_hidden x minibatch_size)
+        :return: the gradient w.r.t. to the non linear activation function of the hidden layer, ndarray (n_hidden x minibatch_size)
+        """
+        return 1. * (x > 0)
 
     # ----------------------- FORWARD PROPAGATION ------------------------------
 
