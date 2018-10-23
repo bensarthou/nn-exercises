@@ -233,11 +233,10 @@ class NNet:
 
             # Computing ||Theta||
             norm_theta = 0
-
-            for h_layer in range(self.n_hidden_layers):
+            for i_layer in range(self.n_hidden_layers + 1):
                 # ||theta|| += ||W_i||^2 + ||b_i||^2
-                norm_theta += np.linalg.norm(self.weights[h_layer], self.lnorm)**2 +\
-                              np.linalg.norm(self.biases[h_layer], self.lnorm)**2
+                norm_theta += np.linalg.norm(self.weights[i_layer], self.lnorm)**2 +\
+                              np.linalg.norm(self.biases[i_layer], self.lnorm)**2
 
             reg_term = (self.reg_lambda/2)*norm_theta
 
@@ -358,7 +357,9 @@ class NNet:
 
         # pass through output layer
         grad_pre_activation = self.gradient_out(outputs[-1], labels)
-        grad_weights[-1], grad_biases[-1] = self.gradient_weights(grad_pre_activation, inputs[-1])
+        grad_weights[-1], grad_biases[-1] = self.gradient_weights(grad_pre_activation,
+                                                                  inputs[-1],
+                                                                  -1)
 
         # pass through hidden layers
         for h_layer in reversed(range(self.n_hidden_layers)):
@@ -367,7 +368,8 @@ class NNet:
                                                        pre_activations[h_layer],
                                                        self.activations_derivatives_map[self.hidden_layers_activations[h_layer]])
             grad_weights[h_layer], grad_biases[h_layer] = self.gradient_weights(grad_pre_activation,
-                                                                                inputs[h_layer])
+                                                                                inputs[h_layer],
+                                                                                h_layer)
 
         return grad_weights, grad_biases
 
@@ -396,11 +398,12 @@ class NNet:
         grad_a_k = grad_y_k * activation_function_derivative_k(a_k)
         return grad_a_k
 
-    def gradient_weights(self, grad_a, x):
+    def gradient_weights(self, grad_a, x, i_layer):
         """
         Compute the gradient w.r.t. the parameters.
         :param grad_a: the gradient of the loss w.r.t the pre-activation, ndarray (n_output x minibatch_size)
         :param x: the input data, ndarray (n_input x minibatch_size)
+        :param i_layer: index of the layer which gradient are being computed
         :return: the gradient w.r.t. the parameters, ndarray (n_output x n_input), ndarray (n_output, 1)
         """
         minibatch_size = x.shape[1]
@@ -415,14 +418,9 @@ class NNet:
             grad_w += np.outer(grad_a[:, i_sample], x[:, i_sample])
 
         # Regularization
-        reg_w, reg_b = 0, 0
         if self.reg_lambda != 0.0:
-            for h_layer in range(self.n_hidden_layers):
-                reg_w += self.weights[h_layer]
-                reg_b += self.biases[h_layer]
-
-            reg_w *= self.reg_lambda
-            reg_b *= self.reg_lambda
+            reg_w = self.reg_lambda*self.weights[i_layer]
+            reg_b = self.reg_lambda*self.biases[i_layer]
 
             # grad_theta = dL/dtheta + reg_lambda*theta
             grad_b += reg_b
